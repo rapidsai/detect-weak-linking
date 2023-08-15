@@ -1,0 +1,15 @@
+## Common
+__pycache__
+*.py[cod]
+*$py.class
+
+# dotenv
+.env
+
+# virtualenv
+.venv
+venv/
+ENV/
+
+## VSCode IDE
+.vscode
