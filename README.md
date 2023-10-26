@@ -20,6 +20,7 @@ Any detect issues will cause the program to return an exit code of 1, and output
 
 ```
 detect.py -m <libA> <libB> # List only kernels that exist in more than one of the provided library
+detect.py -m <directory> # List only kernels that exist in more than one of the libraries inside the given directory
 detect.py -m -r <exe|lib> # Look at the provided library, and all ldd (`DT_NEEDED`) dependencies
 ```
 

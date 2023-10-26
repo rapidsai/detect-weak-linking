@@ -271,6 +271,7 @@ def remove_baseline_entries(issues, baseline):
 # project -r <exe|lib> # follow ldd
 # project <exe|lib> # just the item
 # project <libA> <libB> # just the listed items
+# project <directory> # all libraries in the directory
 # project -r <libA> <libB> # recursive across multiple items
 # project -r <libA> -b <json_entry> # Only show entries not in the baseline file
 def main():
@@ -280,12 +281,24 @@ def main():
   parser.add_argument("-m", dest="multiple_entries", action='store_true', help="only show symbols that are in multiple files")
   parser.add_argument("-e", "--exclude", type=str, nargs='+', help="exclude symbols that match this pattern ( applied on demangled names)")
   parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="show only results that are not in the baseline file")
-  parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o )")
+  parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
   args = parser.parse_args()
 
   cache = ElfCache(args.multiple_entries, args.global_vars, args.exclude)
+
+  # Transform any directory into files
+  items = []
   for item in args.input:
-    if( os.path.isfile(item)):
+    if os.path.isdir(item):
+      for possible_item in os.listdir(item):
+        pitem = os.path.join(item, possible_item)
+        if os.path.isfile(pitem):
+          items.append(pitem)
+    else:
+      items.append(item)
+
+  for item in items:
+    if os.path.isfile(item):
       cache.load(item, args.recursive)
 
   if len(cache.cache) == 0:
