@@ -304,7 +304,7 @@ def main():
   if len(cache.cache) == 0:
     print("Invalid input given")
     parser.print_help()
-    return 1
+    sys.exit(1)
 
   issues = cache.find_issues()
 
@@ -316,7 +316,7 @@ def main():
   if issues:
     if len(issues) >= 1:
       print(json.dumps(issues, indent=2))
-      return 1
+      sys.exit(1)
   return 0
 
 if __name__ == '__main__':
