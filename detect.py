@@ -169,7 +169,7 @@ class ElfCache:
         # use the first one since that should be the first in RPATH/RUNPATH order
         self.load(lib_to_load[0], True)
 
-  def find_issues(self):
+  def find_issues(self, all_weak: bool):
     # Report all bad SASS/PTX entries
     #
     # Should display c++filt names
@@ -217,9 +217,14 @@ class ElfCache:
     json_entries = {}
     for key in self.cache:
       entity = self.cache[key]
-      for entry in entity.cuda_public_entry_symbols:
-        if entry in entity.all_symbols:
+
+      if all_weak:
+        for entry in entity.all_symbols:
           add_or_update(json_entries, entry, key)
+      else:
+        for entry in entity.cuda_public_entry_symbols:
+          if entry in entity.all_symbols:
+            add_or_update(json_entries, entry, key)
 
       if self.include_u_variables:
         for entry in entity.all_symbols:
@@ -288,6 +293,7 @@ def main():
   parser.add_argument("-u", dest="global_vars", action='store_true', help="show global unique variables")
   parser.add_argument("-m", dest="multiple_entries", action='store_true', help="only show symbols that are in multiple files")
   parser.add_argument("--no-ptx", dest="no_ptx", action='store_true', help="Don't looks for PTX kernel entries")
+  parser.add_argument("--all-weak", dest="all_weak", action='store_true', help="Consider all weak/global symbols not just CUDA kernels")
   parser.add_argument("-e", "--exclude", type=str, nargs='+', help="exclude symbols that match this pattern ( applied on demangled names)")
   parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="show only results that are not in the baseline file")
   parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
@@ -315,7 +321,7 @@ def main():
     parser.print_help()
     sys.exit(1)
 
-  issues = cache.find_issues()
+  issues = cache.find_issues(args.all_weak)
 
   # Load up the baseline json
   if args.baseline:
