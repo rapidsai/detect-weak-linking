@@ -42,8 +42,13 @@ def get_external_symbols(elf_file: str) -> str:
   nice_symbols = [Symbol.from_nm(x) for x in nm_output]
   return nice_symbols
 
-def get_cuda_entry_symbols(elf_file: str):
-  cuobjdump_output = execute("cuobjdump", ["-symbols", "-ptx", elf_file])
+def get_cuda_entry_symbols(elf_file: str, no_ptx: bool):
+
+  options = ["-symbols", "-ptx", elf_file]
+  if no_ptx:
+    options = ["-symbols", elf_file]
+
+  cuobjdump_output = execute("cuobjdump", options)
 
   # lines that start with `STO_ENTRY` + STB_GLOBAL are possible public sass entry points
   # lines that start with `STT_FUNC` + STB_LOCAL are private sass entry points
@@ -98,11 +103,11 @@ class ElfEntity:
   r"""
   A DSO or executable with a record of all external symbols
   """
-  def __init__(self, file_path: str) -> None:
+  def __init__(self, file_path: str, no_ptx: bool) -> None:
     print("Extracting symbols from", file_path)
     self.file = file_path
     self.all_symbols = get_external_symbols(self.file)
-    self.cuda_public_entry_symbols, self.cuda_private_entry_symbols = get_cuda_entry_symbols(self.file)
+    self.cuda_public_entry_symbols, self.cuda_private_entry_symbols = get_cuda_entry_symbols(self.file, no_ptx)
 
   @staticmethod
   def is_elf(file_path: str) -> bool:
@@ -117,10 +122,11 @@ class ElfCache:
   doing cross library checks
   """
 
-  def __init__(self, multiple_entries: bool, show_variables: bool, exclusions) -> None:
+  def __init__(self, multiple_entries: bool, show_variables: bool, exclusions, no_ptx: bool) -> None:
     self.show_only_multiple_entries = multiple_entries
     self.include_u_variables = show_variables
     self.has_exclusions = False
+    self.no_ptx = no_ptx
 
     if exclusions:
       # build regex engines
@@ -132,7 +138,7 @@ class ElfCache:
   def load(self, path, with_ldd) -> None:
     if path not in self.cache:
       if ElfEntity.is_elf(path):
-        self.cache[path] = ElfEntity(path)
+        self.cache[path] = ElfEntity(path, self.no_ptx)
 
         if with_ldd:
           self.load_deps(path)
@@ -281,12 +287,13 @@ def main():
   parser.add_argument("-r", dest="recursive", action='store_true', help="also load ldd dependencies")
   parser.add_argument("-u", dest="global_vars", action='store_true', help="show global unique variables")
   parser.add_argument("-m", dest="multiple_entries", action='store_true', help="only show symbols that are in multiple files")
+  parser.add_argument("--no-ptx", dest="no_ptx", action='store_true', help="Don't looks for PTX kernel entries")
   parser.add_argument("-e", "--exclude", type=str, nargs='+', help="exclude symbols that match this pattern ( applied on demangled names)")
   parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="show only results that are not in the baseline file")
   parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
   args = parser.parse_args()
 
-  cache = ElfCache(args.multiple_entries, args.global_vars, args.exclude)
+  cache = ElfCache(args.multiple_entries, args.global_vars, args.exclude, args.no_ptx)
 
   # Transform any directory into files
   items = []
