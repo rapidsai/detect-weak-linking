@@ -151,9 +151,11 @@ class ElfCache:
         libnames.append(line.split(" ")[-1])
       if 'RUNPATH' in line or 'RPATH' in line:
         entries = line.split(" ")[-1]
-        entries = entries.split(":") #Can have multiple values in the same entry
-        directories+=entries
-
+        if entries == "$ORIGIN":
+          directories.append(os.path.dirname(path))
+        else:
+          entries = entries.split(":") #Can have multiple values in the same entry
+          directories+=entries
 
     for lib in libnames:
       lib_to_load = [ os.path.join(dir,lib) for dir in directories if os.path.exists(os.path.join(dir,lib)) ]
