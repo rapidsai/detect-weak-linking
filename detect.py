@@ -169,7 +169,7 @@ class ElfCache:
         # use the first one since that should be the first in RPATH/RUNPATH order
         self.load(lib_to_load[0], True)
 
-  def find_issues(self, all_weak: bool):
+  def find_issues(self, all_weak: bool, all_kernels: bool):
     # Report all bad SASS/PTX entries
     #
     # Should display c++filt names
@@ -221,6 +221,13 @@ class ElfCache:
       if all_weak:
         for entry in entity.all_symbols:
           add_or_update(json_entries, entry, key)
+      elif all_kernels:
+        for entry in entity.cuda_private_entry_symbols:
+          add_or_update(json_entries, entry, key)
+
+        for entry in entity.cuda_public_entry_symbols:
+          if entry in entity.all_symbols:
+            add_or_update(json_entries, entry, key)
       else:
         for entry in entity.cuda_public_entry_symbols:
           if entry in entity.all_symbols:
@@ -294,6 +301,7 @@ def main():
   parser.add_argument("-m", dest="multiple_entries", action='store_true', help="only show symbols that are in multiple files")
   parser.add_argument("--no-ptx", dest="no_ptx", action='store_true', help="Don't looks for PTX kernel entries")
   parser.add_argument("--all-weak", dest="all_weak", action='store_true', help="Consider all weak/global symbols not just CUDA kernels")
+  parser.add_argument("--all-kernels", dest="all_kernels", action='store_true', help="Consider all CUDA kernels not just weak/global ones")
   parser.add_argument("-e", "--exclude", type=str, nargs='+', help="exclude symbols that match this pattern ( applied on demangled names)")
   parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="show only results that are not in the baseline file")
   parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
@@ -321,7 +329,7 @@ def main():
     parser.print_help()
     sys.exit(1)
 
-  issues = cache.find_issues(args.all_weak)
+  issues = cache.find_issues(args.all_weak, args.all_kernels)
 
   # Load up the baseline json
   if args.baseline:
