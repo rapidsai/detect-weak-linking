@@ -31,6 +31,7 @@ def execute(command,args, **kwargs):
     output = subprocess.run(invoke, cwd=working_dir,check=True, capture_output=True).stdout
     output = output.splitlines()
   except (OSError, subprocess.CalledProcessError) as err:
+    print(err)
     output = []
   return output
 
@@ -40,7 +41,7 @@ def is_elf(file_path: str) -> bool:
       return first_byte == b'\x7fELF'
 
 def extract_cubins(elf_file: str, dump_location: str):
-  execute("cuobjdump", ["--extract-elf", "all", elf_file], cwd=dump_location)
+  execute("cuobjdump", ["--extract-elf", "all", os.path.abspath(elf_file)], cwd=dump_location)
   files = os.listdir(dump_location)
   return [ os.path.join(dump_location, f) for f in files ]
 
@@ -104,7 +105,8 @@ class SymbolCache:
     self.tmpdir = tempfile.mkdtemp()
 
   def __del__(self):
-    shutil.rmtree(self.tmpdir)
+    if self.tmpdir:
+      shutil.rmtree(self.tmpdir)
 
   def load(self, path) -> None:
     if path not in self.cubin_cache and is_elf(path):
