@@ -296,14 +296,14 @@ def remove_baseline_entries(issues, baseline):
 # project -r <libA> -b <json_entry> # Only show entries not in the baseline file
 def main():
   parser = argparse.ArgumentParser(prog='detect cuda __global__ weak symbols')
-  parser.add_argument("-r", dest="recursive", action='store_true', help="also load ldd dependencies")
-  parser.add_argument("-u", dest="global_vars", action='store_true', help="show global unique variables")
-  parser.add_argument("-m", dest="multiple_entries", action='store_true', help="only show symbols that are in multiple files")
+  parser.add_argument("-r", "--recursive", dest="recursive", action='store_true', help="Load ldd dependencies")
+  parser.add_argument("-u", "--global-vars", dest="global_vars", action='store_true', help="Show global unique variables")
+  parser.add_argument("-m", "--multiple-instances", dest="multiple_entries", action='store_true', help="Only show symbols that are in multiple files")
   parser.add_argument("--no-ptx", dest="no_ptx", action='store_true', help="Don't looks for PTX kernel entries")
   parser.add_argument("--all-weak", dest="all_weak", action='store_true', help="Consider all weak/global symbols not just CUDA kernels")
   parser.add_argument("--all-kernels", dest="all_kernels", action='store_true', help="Consider all CUDA kernels not just weak/global ones")
-  parser.add_argument("-e", "--exclude", type=str, nargs='+', help="exclude symbols that match this pattern ( applied on demangled names)")
-  parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="show only results that are not in the baseline file")
+  parser.add_argument("-e", "--exclude", type=str, nargs='+', help="Exclude symbols that match this pattern ( applied on demangled names)")
+  parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="Show only results that are not in the baseline file")
   parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
   args = parser.parse_args()
 
