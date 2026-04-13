@@ -169,7 +169,7 @@ class ElfCache:
         # use the first one since that should be the first in RPATH/RUNPATH order
         self.load(lib_to_load[0], True)
 
-  def find_issues(self, all_weak: bool, all_kernels: bool):
+  def find_issues(self, issue_mode):
     # Report all bad SASS/PTX entries
     #
     # Should display c++filt names
@@ -218,17 +218,17 @@ class ElfCache:
     for key in self.cache:
       entity = self.cache[key]
 
-      if all_weak:
+      if issue_mode == "all_cuda_kernels":
         for entry in entity.all_symbols:
           add_or_update(json_entries, entry, key)
-      elif all_kernels:
+      elif issue_mode == "all":
         for entry in entity.cuda_private_entry_symbols:
           add_or_update(json_entries, entry, key)
 
         for entry in entity.cuda_public_entry_symbols:
           if entry in entity.all_symbols:
             add_or_update(json_entries, entry, key)
-      else:
+      elif issue_mode == "cuda":
         for entry in entity.cuda_public_entry_symbols:
           if entry in entity.all_symbols:
             add_or_update(json_entries, entry, key)
@@ -296,18 +296,25 @@ def remove_baseline_entries(issues, baseline):
 # project -r <libA> -b <json_entry> # Only show entries not in the baseline file
 def main():
   parser = argparse.ArgumentParser(prog='detect cuda __global__ weak symbols')
+  modes = parser.add_mutually_exclusive_group(required=False)
+  modes.add_argument("--cuda", dest="mode", action='store_const', const="cuda", help="Use CUDA language kernel visibility requirements")
+  modes.add_argument("--all-kernels", dest="mode", action='store_const', const="all_cuda_kernels", help="Consider all CUDA kernels not just weak/global ones")
+  modes.add_argument("--all-weak", dest="mode", action='store_const', const="all", help="Consider all weak/global symbols not just CUDA kernels")
+
   parser.add_argument("-r", "--recursive", dest="recursive", action='store_true', help="Load ldd dependencies")
   parser.add_argument("-u", "--global-vars", dest="global_vars", action='store_true', help="Show global unique variables")
   parser.add_argument("-m", "--multiple-instances", dest="multiple_entries", action='store_true', help="Only show symbols that are in multiple files")
   parser.add_argument("--no-ptx", dest="no_ptx", action='store_true', help="Don't looks for PTX kernel entries")
-  parser.add_argument("--all-weak", dest="all_weak", action='store_true', help="Consider all weak/global symbols not just CUDA kernels")
-  parser.add_argument("--all-kernels", dest="all_kernels", action='store_true', help="Consider all CUDA kernels not just weak/global ones")
   parser.add_argument("-e", "--exclude", type=str, nargs='+', help="Exclude symbols that match this pattern ( applied on demangled names)")
   parser.add_argument("-b", "--baseline", type=argparse.FileType('r'), help="Show only results that are not in the baseline file")
   parser.add_argument("input", nargs='+', type=str, help="elf file ( .so, .exe, .o ) or directory")
   args = parser.parse_args()
+  if args.mode == None:
+    args.mode = "cuda"
 
   cache = ElfCache(args.multiple_entries, args.global_vars, args.exclude, args.no_ptx)
+
+  # all-weak and --strict are mutually exclusive
 
   # Transform any directory into files
   items = []
@@ -329,7 +336,7 @@ def main():
     parser.print_help()
     sys.exit(1)
 
-  issues = cache.find_issues(args.all_weak, args.all_kernels)
+  issues = cache.find_issues(args.mode)
 
   # Load up the baseline json
   if args.baseline:
