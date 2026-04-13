@@ -116,11 +116,13 @@ class SymbolCache:
       self.cubin_cache[path] = cubins
 
   def display_sizes(self):
-    def add_or_update(json, symbol):
+    def add_or_update(json, count, symbol):
       if symbol.name in json:
         json[symbol.name] += symbol.size
+        count[symbol.name] += 1
       else:
         json[symbol.name] = symbol.size
+        count[symbol.name] = 1
 
     # determine if a name matches any of the inclusions regex
     def has_match(name, inclusions):
@@ -130,24 +132,27 @@ class SymbolCache:
       return False
 
     entries = {}
+    counts = {}
     for values in self.cubin_cache.values():
       for cubin in values:
         symbols = extract_info_from_cubin(cubin)
         for s in symbols:
-          add_or_update(entries, s)
+          add_or_update(entries, counts, s)
 
     entries = transform_to_demangled_names(entries)
+    counts = transform_to_demangled_names(counts)
 
     # apply the regex filters
     if self.has_inclusions:
       entries = {k:v for k,v in entries.items() if has_match(k, self.inclusions) }
+      counts = {k:v for k,v in counts.items() if has_match(k, self.inclusions) }
 
     total_size = 0
     for e in entries.values():
       total_size += e
 
     for k, v in sorted(entries.items(), key=lambda kv: kv[1]):
-      print("%s: %s bytes" % (k,v))
+      print(k, "is used by", counts[k], "TUs for a combined", v, "bytes")
     print("Total uncompressed size of CUDA kernels: ", total_size, "bytes")
 
 
