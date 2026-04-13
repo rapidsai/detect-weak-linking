@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,10 +170,10 @@ def main():
         "--include",
         type=str,
         nargs="+",
-        help="only include symbols that match this pattern ( applied on demangled names)",
+        help="only include symbols that match this pattern (applied on demangled names)",
     )
     parser.add_argument(
-        "input", nargs="+", type=str, help="elf file ( .so, .exe, .o ) or directory"
+        "input", nargs="+", type=str, help="elf file (.so, .exe, .o) or directory"
     )
     args = parser.parse_args()
 
