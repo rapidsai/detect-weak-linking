@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import defaultdict
 
 
 def execute(command, args, **kwargs):
@@ -62,7 +63,7 @@ class Symbol:
         self.size = int(str_size)
 
     def __eq__(self, other):
-        return self.name == other.name
+        return self.name == other.name and self.type == other.type
 
     def __str__(self):
         return self.name
@@ -85,20 +86,20 @@ def extract_info_from_cubin(file: str):
 
 
 def transform_to_demangled_names(symbols):
-    # Call cu++filt with a subset of entries to save time
-    # We can't pass all entries as cu++filt has a max
+    # Call c++filt with a subset of entries to save time
+    # We can't pass all entries as c++filt has a max
     # input size
-    def chunk_iter(list):
-        for i in range(0, len(list), 128):
-            yield list[i : i + 128]
+    def chunk_iter(x):
+        for i in range(0, len(x), 128):
+            yield x[i : i + 128]
 
-    all_names = list(symbols.keys())
-    all_sizes = list(symbols.values())
-    symbols_out = {}
-    for names, sizes in zip(chunk_iter(all_names), chunk_iter(all_sizes)):
-        names = [n.decode("utf8") for n in execute("c++filt", names)]
-        for n, s in zip(names, sizes):
-            symbols_out[n] = s
+    symbols_out = []
+    for chunk in chunk_iter(symbols):
+        demangled = [
+            n.decode("utf8") for n in execute("c++filt", [s.name for s in chunk])
+        ]
+        for i, n in enumerate(demangled):
+            symbols_out.append(Symbol(n, chunk[i].type, chunk[i].size))
 
     return symbols_out
 
@@ -125,45 +126,40 @@ class SymbolCache:
             self.cubin_cache[path] = cubins
 
     def display_sizes(self):
-        def add_or_update(json, count, symbol):
-            if symbol.name in json:
-                json[symbol.name] += symbol.size
-                count[symbol.name] += 1
-            else:
-                json[symbol.name] = symbol.size
-                count[symbol.name] = 1
-
         # determine if a name matches any of the inclusions regex
-        def has_match(name, inclusions):
-            for regex in inclusions:
-                if regex.search(name):
-                    return True
-            return False
+        def has_match(name):
+            if self.has_inclusions:
+                for regex in self.inclusions:
+                    if regex.search(name):
+                        return True
+                return False
+            return True
 
-        entries = {}
-        counts = {}
+        sizes = defaultdict(int)
+        counts = defaultdict(int)
+        # When counting the number of duplication for each kernel,
+        # ignore the presence of multiple code section types
+        # (.text, .constant, .nv.info etc).
         for values in self.cubin_cache.values():
             for cubin in values:
-                symbols = extract_info_from_cubin(cubin)
-                for s in symbols:
-                    add_or_update(entries, counts, s)
+                current_symbols = transform_to_demangled_names(
+                    extract_info_from_cubin(cubin)
+                )
+                for s in current_symbols:
+                    if has_match(s.name):
+                        sizes[s.name] += s.size
+                        counts[(s.name, s.type)] += 1
 
-        entries = transform_to_demangled_names(entries)
-        counts = transform_to_demangled_names(counts)
+        # counts_agg[symbol_name] <- max(counts[(symbol_name, *)])
+        counts_agg = defaultdict(int)
+        for k, v in counts.items():
+            counts_agg[k[0]] = max(counts_agg[k[0]], v)
 
-        # apply the regex filters
-        if self.has_inclusions:
-            entries = {
-                k: v for k, v in entries.items() if has_match(k, self.inclusions)
-            }
-            counts = {k: v for k, v in counts.items() if has_match(k, self.inclusions)}
+        total_size = sum(sizes.values())
+        entries = {k: (sizes[k], v) for k, v in counts_agg.items()}
 
-        total_size = 0
-        for e in entries.values():
-            total_size += e
-
-        for k, v in sorted(entries.items(), key=lambda kv: kv[1]):
-            print(k, "is used by", counts[k], "TUs for a combined", v, "bytes")
+        for k, v in sorted(entries.items(), key=lambda kv: kv[1][0]):
+            print("%s: %s bytes (%s instantiations)" % (k, v[0], v[1]))
         print("Total uncompressed size of CUDA kernels: ", total_size, "bytes")
 
 
