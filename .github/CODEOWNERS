@@ -1,0 +1,5 @@
+# default (overridden by any matches below)
+* @rapidsai/ci-codeowners
+
+# Ops code owners
+/SECURITY.md             @rapidsai/ops-codeowners
