@@ -1,0 +1,9 @@
+# Allow a contributor to correct an unsigned PR with one signed remediation
+# commit; normal RAPIDS squash merges retain that sign-off.
+allowRemediationCommits:
+  individual: true
+
+# NVIDIA employment agreements cover RAPIDS organization members; require DCO
+# sign-off from external contributors.
+require:
+  members: false
