@@ -4,7 +4,10 @@
 
 set -euo pipefail
 
-conda install -y -n base -c conda-forge \
+# default env is called `rapids` and will be used without specifying `-n`
+# we _could_ be more explicit here but that name might bitrot, so we rely on
+# "install into the current active env" behavior
+conda install -y -c conda-forge \
     cuda-nvcc cuda-cuobjdump cuda-cudart-dev \
     cxx-compiler binutils \
     pytest
